@@ -113,26 +113,56 @@ print(dataset)
 
 
 if args.baseline:
+    import modeling_mc_for_baseline
     tokenizer = custom_tokenizer.get_tokenizer(tokenizer_path)
-    bartconfig = BartConfig(n_layer=6,
-                            d_model=512,
-                            decoder_attention_heads=8,
-                            decoder_ffn_dim=2048,
-                            encoder_attention_heads=8,
-                            encoder_ffn_dim=2048,
-                            activation_function="relu", 
-                            pad_token_id=tokenizer.pad_token_id, 
-                            eos_token_id=tokenizer.eos_token_id, 
-                            bos_token_id=tokenizer.bos_token_id, 
-                            decoder_start_token_id=tokenizer.eos_token_id, 
-                            is_encoder_decoder=True, 
-                            forced_bos_token_id=tokenizer.bos_token_id, 
-                            forced_eos_token_id=tokenizer.eos_token_id, 
-                            vocab_size=len(tokenizer),
-                            )
+    if next_token_type == "new_token":
+        tokenizer.add_tokens("<next>", special_tokens=True)
+        next_token_id = tokenizer.convert_tokens_to_ids("<next>")
+    else:
+        next_token_id = None
 
-    model = BartForConditionalGeneration(config=bartconfig)
-    model.to(device)
+    mixcoder_config = modeling_mc_for_baseline.MixcoderConfig(n_layer=6,
+                                    d_model=512,
+                                    decoder_attention_heads=8,
+                                    decoder_ffn_dim=2048,
+                                    encoder_attention_heads=8,
+                                    encoder_ffn_dim=2048,
+                                    activation_function="relu", 
+                                    pad_token_id=tokenizer.pad_token_id, 
+                                    eos_token_id=tokenizer.eos_token_id, 
+                                    bos_token_id=tokenizer.bos_token_id, 
+                                    decoder_start_token_id=tokenizer.eos_token_id, 
+                                    is_encoder_decoder=True, 
+                                    forced_bos_token_id=tokenizer.bos_token_id, 
+                                    forced_eos_token_id=tokenizer.eos_token_id, 
+                                    vocab_size=len(tokenizer),
+                                    next_token_type=next_token_type,
+                                    next_token_id=next_token_id,
+                                    share_self_attention_module=share_self_attention_module,
+                                    pass_hidden_to_cross_att=pass_hidden_to_cross_att
+                                    )
+                            
+    model = modeling_mc_for_baseline.MixcoderForConditionalGeneration(config=mixcoder_config)
+    # tokenizer = custom_tokenizer.get_tokenizer(tokenizer_path)
+    # bartconfig = BartConfig(n_layer=6,
+    #                         d_model=512,
+    #                         decoder_attention_heads=8,
+    #                         decoder_ffn_dim=2048,
+    #                         encoder_attention_heads=8,
+    #                         encoder_ffn_dim=2048,
+    #                         activation_function="relu", 
+    #                         pad_token_id=tokenizer.pad_token_id, 
+    #                         eos_token_id=tokenizer.eos_token_id, 
+    #                         bos_token_id=tokenizer.bos_token_id, 
+    #                         decoder_start_token_id=tokenizer.eos_token_id, 
+    #                         is_encoder_decoder=True, 
+    #                         forced_bos_token_id=tokenizer.bos_token_id, 
+    #                         forced_eos_token_id=tokenizer.eos_token_id, 
+    #                         vocab_size=len(tokenizer),
+    #                         )
+
+    # model = BartForConditionalGeneration(config=bartconfig)
+    # model.to(device)
 
 elif args.pre_trained_baseline:
     tokenizer = BartTokenizer.from_pretrained("facebook/bart-base")
