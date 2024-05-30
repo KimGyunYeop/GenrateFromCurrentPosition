@@ -1727,7 +1727,7 @@ class MixcoderDecoder(MixcoderPreTrainedModel):
                 layer_outputs = self._gradient_checkpointing_func(
                     decoder_layer.__call__,
                     hidden_states,
-                    next_token_hidden_state,
+                    # next_token_hidden_state,
                     attention_mask,
                     encoder_hidden_states,
                     encoder_attention_mask,

@@ -143,6 +143,7 @@ if args.baseline:
                                     )
                             
     model = modeling_mc_for_baseline.MixcoderForConditionalGeneration(config=mixcoder_config)
+    model.to(device)
     # tokenizer = custom_tokenizer.get_tokenizer(tokenizer_path)
     # bartconfig = BartConfig(n_layer=6,
     #                         d_model=512,
