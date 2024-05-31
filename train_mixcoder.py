@@ -81,6 +81,8 @@ else:
     save_path += "-" + next_token_type 
     if share_only_kv:
         save_path += "-share_kv"
+    if share_o:
+        save_path += "o"
     if share_self_attention_module:
         save_path += "-share_att"
     if pass_hidden_to_cross_att:
