@@ -32,6 +32,7 @@ argparser = argparse.ArgumentParser()
 argparser.add_argument("--next_token_type", type=str, default="avg_prev_token", choices=["new_token", "avg_prev_token"])
 argparser.add_argument("--share_self_attention_module", default=False, action="store_true")
 argparser.add_argument("--share_only_kv", default=False, action="store_true")
+argparser.add_argument("--share_o", default=False, action="store_true")
 argparser.add_argument("--pass_hidden_to_cross_att", default=False, action="store_true")
 
 argparser.add_argument("--baseline", default=False, action="store_true")
@@ -69,6 +70,7 @@ share_self_attention_module = args.share_self_attention_module
 pass_hidden_to_cross_att = args.pass_hidden_to_cross_att
 max_norm = args.max_norm
 share_only_kv = args.share_only_kv
+share_o = args.share_o
 
 if args.baseline:
     save_path = "baseline-" + args.save_path
@@ -146,7 +148,8 @@ if args.baseline:
                                     next_token_id=next_token_id,
                                     share_self_attention_module=share_self_attention_module,
                                     pass_hidden_to_cross_att=pass_hidden_to_cross_att,
-                                    share_only_kv=share_only_kv
+                                    share_only_kv=share_only_kv,
+                                    share_o=share_o
                                     )
                             
     model = modeling_mc_for_baseline.MixcoderForConditionalGeneration(config=mixcoder_config)
@@ -204,7 +207,8 @@ else:
                                     next_token_id=next_token_id,
                                     share_self_attention_module=share_self_attention_module,
                                     pass_hidden_to_cross_att=pass_hidden_to_cross_att,
-                                    share_only_kv=share_only_kv
+                                    share_only_kv=share_only_kv,
+                                    share_o=share_o
                                     )
                             
     model = MixcoderForConditionalGeneration(config=mixcoder_config)

@@ -172,7 +172,6 @@ class MixcoderConfig(PretrainedConfig):
         share_self_attention_module = False,
         pass_hidden_to_cross_att = False,
         share_only_kv = False,
-        share_o = False,
         **kwargs,
     ):
         self.vocab_size = vocab_size
@@ -201,7 +200,6 @@ class MixcoderConfig(PretrainedConfig):
         self.share_self_attention_module = share_self_attention_module
         self.pass_hidden_to_cross_att = pass_hidden_to_cross_att
         self.share_only_kv = share_only_kv
-        self.share_o = share_o
 
         super().__init__(
             num_labels=num_labels,
@@ -329,6 +327,10 @@ class MixcoderAttention(nn.Module):
         self.q_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
         self.out_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
 
+        #code for proposed methods
+        if self.config.share_only_kv:
+            self.next_tok_q_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
+
     def _shape(self, tensor: torch.Tensor, seq_len: int, bsz: int):
         return tensor.view(bsz, seq_len, self.num_heads, self.head_dim).transpose(1, 2).contiguous()
 
@@ -340,6 +342,7 @@ class MixcoderAttention(nn.Module):
         attention_mask: Optional[torch.Tensor] = None,
         layer_head_mask: Optional[torch.Tensor] = None,
         output_attentions: bool = False,
+        use_next_token_query: bool = False,
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
         """Input shape: Batch x Time x Channel"""
 
@@ -349,8 +352,12 @@ class MixcoderAttention(nn.Module):
 
         bsz, tgt_len, _ = hidden_states.size()
 
+        #code for proposed methods
         # get query proj
-        query_states = self.q_proj(hidden_states) * self.scaling
+        if use_next_token_query:
+            query_states = self.next_tok_q_proj(hidden_states) * self.scaling
+        else:
+            query_states = self.q_proj(hidden_states) * self.scaling
         # get key, value proj
         # `past_key_value[0].shape[2] == key_value_states.shape[1]`
         # is checking that the `sequence_length` of the `past_key_value` is the same as
@@ -681,6 +688,7 @@ class MixcoderSdpaAttention(MixcoderAttention):
         attention_mask: Optional[torch.Tensor] = None,
         layer_head_mask: Optional[torch.Tensor] = None,
         output_attentions: bool = False,
+        use_next_token_query: bool = False,
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
         """Input shape: Batch x Time x Channel"""
         if output_attentions or layer_head_mask is not None:
@@ -697,6 +705,7 @@ class MixcoderSdpaAttention(MixcoderAttention):
                 attention_mask=attention_mask,
                 layer_head_mask=layer_head_mask,
                 output_attentions=output_attentions,
+                use_next_token_query=use_next_token_query,
             )
 
         # if key_value_states are provided this layer is used as a cross-attention layer
@@ -707,7 +716,10 @@ class MixcoderSdpaAttention(MixcoderAttention):
 
         #code for proposed methods
         # get query proj
-        query_states = self.q_proj(hidden_states) * self.scaling
+        if use_next_token_query:
+            query_states = self.next_tok_q_proj(hidden_states) * self.scaling
+        else:
+            query_states = self.q_proj(hidden_states) * self.scaling
         # get key, value proj
         # `past_key_value[0].shape[2] == key_value_states.shape[1]`
         # is checking that the `sequence_length` of the `past_key_value` is the same as
@@ -885,7 +897,7 @@ class MixcoderDecoderLayer(nn.Module):
         self.final_layer_norm = nn.LayerNorm(self.embed_dim)
 
         #code for proposed methods
-        if config.share_self_attention_module:
+        if config.share_self_attention_module or config.share_only_kv:
             self.next_token_self_attn = self.self_attn
             self.next_token_encoder_attn_layer_norm = self.encoder_attn_layer_norm
             self.next_token_fc1 = self.fc1
@@ -901,13 +913,6 @@ class MixcoderDecoderLayer(nn.Module):
                 is_causal=True,
                 config=config,
             )
-            
-            if config.share_only_kv:
-                self.next_token_self_attn.v_proj = self.self_attn.v_proj
-                self.next_token_self_attn.k_proj = self.self_attn.k_proj
-            if config.share_o:
-                self.next_token_self_attn.out_proj = self.self_attn.out_proj
-
             
             self.next_token_encoder_attn_layer_norm = nn.LayerNorm(self.embed_dim)
             self.next_token_fc1 = nn.Linear(self.embed_dim, config.decoder_ffn_dim)
