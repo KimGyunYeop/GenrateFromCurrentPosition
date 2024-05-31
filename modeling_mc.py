@@ -1756,6 +1756,9 @@ class MixcoderDecoder(MixcoderPreTrainedModel):
         # embed positions
         positions = self.embed_positions(input, past_key_values_length)
         positions = positions.to(inputs_embeds.device)
+
+        next_token_positions = self.embed_positions(input, past_key_values_length+1)
+        next_token_positions = positions.to(inputs_embeds.device)
         
         #code for proposed methods
         if self.config.next_token_type == "new_token":
@@ -1784,7 +1787,7 @@ class MixcoderDecoder(MixcoderPreTrainedModel):
         hidden_states = self.layernorm_embedding(hidden_states)
         hidden_states = nn.functional.dropout(hidden_states, p=self.dropout, training=self.training)
 
-        next_token_hidden_state = next_token_hidden_embeds + positions
+        next_token_hidden_state = next_token_hidden_embeds + next_token_positions
         next_token_hidden_state = self.layernorm_embedding(next_token_hidden_state)
         next_token_hidden_state = nn.functional.dropout(next_token_hidden_state, p=self.dropout, training=self.training)
 
