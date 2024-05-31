@@ -28,6 +28,14 @@ def set_seed(seed):
     torch.backends.cudnn.benchmark = False
 
 argparser = argparse.ArgumentParser()
+
+argparser.add_argument("--next_token_type", type=str, default="avg_prev_token", choices=["new_token", "avg_prev_token"])
+argparser.add_argument("--share_self_attention_module", default=False, action="store_true")
+argparser.add_argument("--pass_hidden_to_cross_att", default=False, action="store_true")
+
+argparser.add_argument("--baseline", default=False, action="store_true")
+argparser.add_argument("--pre_trained_baseline", default=False, action="store_true")
+
 argparser.add_argument("--data_name", type=str, default="wmt14")
 argparser.add_argument("--subset", type=str, default="de-en")
 argparser.add_argument("--batch_size", type=int, default=16)
@@ -37,15 +45,10 @@ argparser.add_argument("--learning_rate", type=float, default=5e-5)
 argparser.add_argument("--epoch", type=int, default=10)
 argparser.add_argument("--full_step", type=int, default=1000010)
 argparser.add_argument("--eval_step", type=int, default=50000)
-argparser.add_argument("--next_token_type", type=str, default="avg_prev_token", choices=["new_token", "avg_prev_token"])
-argparser.add_argument("--share_self_attention_module", default=False, action="store_true")
-argparser.add_argument("--pass_hidden_to_cross_att", default=False, action="store_true")
 argparser.add_argument("--save_path", type=str, default="")
-argparser.add_argument("--baseline", default=False, action="store_true")
-argparser.add_argument("--pre_trained_baseline", default=False, action="store_true")
 argparser.add_argument("--max_norm", type=float, default=1.0)
-argparser.add_argument("--seed", type=int, default=42)
 argparser.add_argument("--logging_step", type=int, default=1000)
+argparser.add_argument("--seed", type=int, default=42)
 
 args = argparser.parse_args()
 set_seed(args.seed)
