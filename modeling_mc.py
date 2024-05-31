@@ -170,9 +170,9 @@ class MixcoderConfig(PretrainedConfig):
         next_token_type="new_token",
         next_token_id=None,
         pass_hidden_to_cross_att = False,
-        share_only_kv = False,
+        share_kv = False,
         share_o = False,
-        share_crossatt_only_kv = False,
+        share_crossatt_kv = False,
         share_next_token_o = False,
         share_ffnn = False,
         **kwargs,
@@ -201,9 +201,9 @@ class MixcoderConfig(PretrainedConfig):
         self.next_token_type = next_token_type
         self.next_token_id = next_token_id
         self.pass_hidden_to_cross_att = pass_hidden_to_cross_att
-        self.share_only_kv = share_only_kv
+        self.share_kv = share_kv
         self.share_o = share_o
-        self.share_crossatt_only_kv = share_crossatt_only_kv
+        self.share_crossatt_kv = share_crossatt_kv
         self.share_next_token_o = share_next_token_o
         self.share_ffnn = share_ffnn
 
@@ -331,9 +331,23 @@ class MixcoderAttention(nn.Module):
         self.is_decoder = is_decoder
         self.is_causal = is_causal
         
-        self.k_proj = shared_k if shared_k is not None else nn.Linear(embed_dim, embed_dim, bias=bias)
-        self.v_proj = shared_v if shared_v is not None else nn.Linear(embed_dim, embed_dim, bias=bias)
-        self.out_proj = shared_o if shared_o is not None else nn.Linear(embed_dim, embed_dim, bias=bias)
+        if shared_k is not None:
+            print("share_k")
+            self.k_proj = shared_k
+        else:
+            self.k_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
+
+        if shared_v is not None:
+            print("share_v")
+            self.v_proj = shared_v
+        else:
+            self.v_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
+
+        if shared_o is not None:
+            print("share_o")
+            self.out_proj = shared_o
+        else:
+            self.out_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
 
         self.q_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
 
@@ -899,7 +913,7 @@ class MixcoderDecoderLayer(nn.Module):
         self.final_layer_norm = nn.LayerNorm(self.embed_dim)
 
         #code for proposed methods
-        if config.share_only_kv:
+        if config.share_kv:
             shared_k = self.encoder_attn.k_proj
             shared_v = self.encoder_attn.v_proj
         else:
@@ -924,7 +938,7 @@ class MixcoderDecoderLayer(nn.Module):
         )
 
         if config.pass_hidden_to_cross_att:
-
+            print("make 2th layer")
             if config.share_kv:
                 shared_k = self.encoder_attn.k_proj
                 shared_v = self.encoder_attn.v_proj
@@ -944,7 +958,9 @@ class MixcoderDecoderLayer(nn.Module):
                 is_decoder=True,
                 is_causal=True,
                 config=config,
-                shared_layer=self.encoder_attn,
+                shared_k=shared_k,
+                shared_v=shared_v,
+                shared_o=shared_o,
             )
 
         if config.share_ffnn:
