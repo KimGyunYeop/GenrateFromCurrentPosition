@@ -697,6 +697,7 @@ class MixcoderSdpaAttention(MixcoderAttention):
                 "MixcoderModel is using MixcoderSdpaAttention, but `torch.nn.functional.scaled_dot_product_attention` does not support `output_attentions=True` or `layer_head_mask` not None. Falling back to the manual attention"
                 ' implementation, but specifying the manual implementation will be required from Transformers version v5.0.0 onwards. This warning can be removed using the argument `attn_implementation="eager"` when loading the model.'
             )
+            #code for proposed methods
             return super().forward(
                 hidden_states,
                 key_value_states=key_value_states,
