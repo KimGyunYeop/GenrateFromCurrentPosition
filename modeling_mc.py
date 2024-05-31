@@ -957,19 +957,19 @@ class MixcoderDecoderLayer(nn.Module):
 
         if config.pass_hidden_to_cross_att:
             print("make 2th layer")
-            if config.share_q:
+            if config.share_crossatt_q:
                 shared_q = self.encoder_attn.q_proj
             else:
                 shared_q = None
 
-            if config.share_kv:
+            if config.share_crossatt_kv:
                 shared_k = self.encoder_attn.k_proj
                 shared_v = self.encoder_attn.v_proj
             else:
                 shared_k = None
                 shared_v = None
 
-            if config.share_o:
+            if config.share_crossatt_o:
                 shared_o = self.encoder_attn.out_proj
             else:
                 shared_o = None
