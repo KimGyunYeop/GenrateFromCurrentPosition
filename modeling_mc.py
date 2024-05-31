@@ -960,7 +960,6 @@ class MixcoderDecoderLayer(nn.Module):
             attention_mask=attention_mask,
             layer_head_mask=layer_head_mask,
             output_attentions=output_attentions,
-            use_next_token_query=self.config.share_only_kv,
         )
         next_token_hidden_states = nn.functional.dropout(next_token_hidden_states, p=self.dropout, training=self.training)
         next_token_hidden_states = next_token_residual + next_token_hidden_states
@@ -1005,7 +1004,6 @@ class MixcoderDecoderLayer(nn.Module):
                 layer_head_mask=cross_attn_layer_head_mask,
                 past_key_value=cross_attn_past_key_value,
                 output_attentions=output_attentions,
-                use_next_token_query=self.config.share_only_kv,
             )
             next_token_hidden_states = nn.functional.dropout(next_token_hidden_states, p=self.dropout, training=self.training)
             next_token_hidden_states = next_token_residual + next_token_hidden_states
