@@ -169,10 +169,12 @@ class MixcoderConfig(PretrainedConfig):
         forced_eos_token_id=2,
         next_token_type="new_token",
         next_token_id=None,
-        share_self_attention_module = False,
         pass_hidden_to_cross_att = False,
         share_only_kv = False,
         share_o = False,
+        share_crossatt_only_kv = False,
+        share_next_token_o = False,
+        share_ffnn = False,
         **kwargs,
     ):
         self.vocab_size = vocab_size
@@ -198,10 +200,12 @@ class MixcoderConfig(PretrainedConfig):
         #code for proposed methods
         self.next_token_type = next_token_type
         self.next_token_id = next_token_id
-        self.share_self_attention_module = share_self_attention_module
         self.pass_hidden_to_cross_att = pass_hidden_to_cross_att
         self.share_only_kv = share_only_kv
         self.share_o = share_o
+        self.share_crossatt_only_kv = share_crossatt_only_kv
+        self.share_next_token_o = share_next_token_o
+        self.share_ffnn = share_ffnn
 
         super().__init__(
             num_labels=num_labels,
@@ -307,6 +311,9 @@ class MixcoderAttention(nn.Module):
         bias: bool = True,
         is_causal: bool = False,
         config: Optional[MixcoderConfig] = None,
+        shared_k=None,
+        shared_v=None,
+        shared_o=None,
     ):
         super().__init__()
         self.embed_dim = embed_dim
@@ -323,11 +330,12 @@ class MixcoderAttention(nn.Module):
         self.scaling = self.head_dim**-0.5
         self.is_decoder = is_decoder
         self.is_causal = is_causal
+        
+        self.k_proj = shared_k if shared_k is not None else nn.Linear(embed_dim, embed_dim, bias=bias)
+        self.v_proj = shared_v if shared_v is not None else nn.Linear(embed_dim, embed_dim, bias=bias)
+        self.out_proj = shared_o if shared_o is not None else nn.Linear(embed_dim, embed_dim, bias=bias)
 
-        self.k_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
-        self.v_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
         self.q_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
-        self.out_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
 
     def _shape(self, tensor: torch.Tensor, seq_len: int, bsz: int):
         return tensor.view(bsz, seq_len, self.num_heads, self.head_dim).transpose(1, 2).contiguous()
@@ -681,6 +689,9 @@ class MixcoderSdpaAttention(MixcoderAttention):
         attention_mask: Optional[torch.Tensor] = None,
         layer_head_mask: Optional[torch.Tensor] = None,
         output_attentions: bool = False,
+        shared_k: Optional[nn.Module] = None,
+        shared_v: Optional[nn.Module] = None,
+        shared_o: Optional[nn.Module] = None,
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
         """Input shape: Batch x Time x Channel"""
         if output_attentions or layer_head_mask is not None:
@@ -697,6 +708,9 @@ class MixcoderSdpaAttention(MixcoderAttention):
                 attention_mask=attention_mask,
                 layer_head_mask=layer_head_mask,
                 output_attentions=output_attentions,
+                shared_k=shared_k,
+                shared_v=shared_v,
+                shared_o=shared_o,
             )
 
         # if key_value_states are provided this layer is used as a cross-attention layer
@@ -885,39 +899,65 @@ class MixcoderDecoderLayer(nn.Module):
         self.final_layer_norm = nn.LayerNorm(self.embed_dim)
 
         #code for proposed methods
-        if config.share_self_attention_module:
-            print("shared self attention")
-            self.next_token_self_attn = self.self_attn
-            self.next_token_encoder_attn_layer_norm = self.encoder_attn_layer_norm
-            self.next_token_fc1 = self.fc1
-            self.next_token_fc2 = self.fc2
-            self.next_token_final_layer_norm = self.final_layer_norm
-            self.next_token_self_attn_layer_norm = self.self_attn_layer_norm
+        if config.share_only_kv:
+            shared_k = self.encoder_attn.k_proj
+            shared_v = self.encoder_attn.v_proj
         else:
-            print("not shared self attention")
-            self.next_token_self_attn = MIXCODER_ATTENTION_CLASSES[config._attn_implementation](
+            shared_k = None
+            shared_v = None
+
+        if config.share_o:
+            shared_o = self.encoder_attn.out_proj
+        else:
+            shared_o = None
+
+        self.next_token_self_attn = MIXCODER_ATTENTION_CLASSES[config._attn_implementation](
+            embed_dim=self.embed_dim,
+            num_heads=config.decoder_attention_heads,
+            dropout=config.attention_dropout,
+            is_decoder=True,
+            is_causal=True,
+            config=config,
+            shared_k=shared_k,
+            shared_v=shared_v,
+            shared_o=shared_o,
+        )
+
+        if config.pass_hidden_to_cross_att:
+
+            if config.share_kv:
+                shared_k = self.encoder_attn.k_proj
+                shared_v = self.encoder_attn.v_proj
+            else:
+                shared_k = None
+                shared_v = None
+
+            if config.share_o:
+                shared_o = self.encoder_attn.out_proj
+            else:
+                shared_o = None
+
+            self.hidden_encoder_attn = MIXCODER_ATTENTION_CLASSES[config._attn_implementation](
                 embed_dim=self.embed_dim,
                 num_heads=config.decoder_attention_heads,
                 dropout=config.attention_dropout,
                 is_decoder=True,
                 is_causal=True,
                 config=config,
+                shared_layer=self.encoder_attn,
             )
-            
-            if config.share_only_kv:
-                print("shared only kv")
-                self.next_token_self_attn.v_proj = self.self_attn.v_proj
-                self.next_token_self_attn.k_proj = self.self_attn.k_proj
-            if config.share_o:
-                print("shared only o")
-                self.next_token_self_attn.out_proj = self.self_attn.out_proj
 
-            
+        if config.share_ffnn:
+            self.next_token_encoder_attn_layer_norm = self.encoder_attn_layer_norm
+            self.next_token_fc1 = self.fc1
+            self.next_token_fc2 = self.fc2
+            self.next_token_final_layer_norm = self.final_layer_norm
+            self.next_token_self_attn_layer_norm = self.self_attn_layer_norm
+        else:
             self.next_token_encoder_attn_layer_norm = nn.LayerNorm(self.embed_dim)
             self.next_token_fc1 = nn.Linear(self.embed_dim, config.decoder_ffn_dim)
             self.next_token_fc2 = nn.Linear(config.decoder_ffn_dim, self.embed_dim)
             self.next_token_final_layer_norm = nn.LayerNorm(self.embed_dim)
-            self.next_token_encoder_attn_layer_norm = nn.LayerNorm(self.embed_dim)
             self.next_token_self_attn_layer_norm = nn.LayerNorm(self.embed_dim)
 
     def forward(
@@ -1025,7 +1065,7 @@ class MixcoderDecoderLayer(nn.Module):
 
                 # cross_attn cached key/values tuple is at positions 3,4 of present_key_value tuple
                 cross_attn_past_key_value = past_key_value[-2:] if past_key_value is not None else None
-                hidden_states, cross_attn_weights, cross_attn_present_key_value = self.encoder_attn(
+                hidden_states, cross_attn_weights, cross_attn_present_key_value = self.hidden_encoder_attn(
                     hidden_states=hidden_states,
                     key_value_states=encoder_hidden_states,
                     attention_mask=encoder_attention_mask,

@@ -30,10 +30,12 @@ def set_seed(seed):
 argparser = argparse.ArgumentParser()
 
 argparser.add_argument("--next_token_type", type=str, default="avg_prev_token", choices=["new_token", "avg_prev_token"])
-argparser.add_argument("--share_self_attention_module", default=False, action="store_true")
+argparser.add_argument("--pass_hidden_to_cross_att", default=False, action="store_true")
 argparser.add_argument("--share_only_kv", default=False, action="store_true")
 argparser.add_argument("--share_o", default=False, action="store_true")
-argparser.add_argument("--pass_hidden_to_cross_att", default=False, action="store_true")
+argparser.add_argument("--share_crossatt_only_kv", default=False, action="store_true")
+argparser.add_argument("--share_crossatt_o", default=False, action="store_true")
+argparser.add_argument("--share_ffnn", default=False, action="store_true")
 
 argparser.add_argument("--baseline", default=False, action="store_true")
 argparser.add_argument("--pre_trained_baseline", default=False, action="store_true")
@@ -66,11 +68,14 @@ epoch = args.epoch
 full_step = args.full_step
 eval_step = args.eval_step
 next_token_type = args.next_token_type
-share_self_attention_module = args.share_self_attention_module
+# share_self_attention_module = args.share_self_attention_module
 pass_hidden_to_cross_att = args.pass_hidden_to_cross_att
 max_norm = args.max_norm
 share_only_kv = args.share_only_kv
 share_o = args.share_o
+share_crossatt_only_kv = args.share_crossatt_only_kv
+share_crossatt_o = args.share_crossatt_o
+share_ffnn = args.share_ffnn
 
 if args.baseline:
     save_path = "baseline-" + args.save_path
@@ -83,8 +88,12 @@ else:
         save_path += "-share_kv"
     if share_o:
         save_path += "o"
-    if share_self_attention_module:
-        save_path += "-share_att"
+    if share_crossatt_only_kv:
+        save_path += "-share_cross_kv"
+    if share_crossatt_o:
+        save_path += "o"
+    if share_ffnn:
+        save_path += "-share_ffnn"
     if pass_hidden_to_cross_att:
         save_path += "-hidden_cross_att"
 save_path = os.path.join("results", save_path)
@@ -148,10 +157,12 @@ if args.baseline:
                                     vocab_size=len(tokenizer),
                                     next_token_type=next_token_type,
                                     next_token_id=next_token_id,
-                                    share_self_attention_module=share_self_attention_module,
                                     pass_hidden_to_cross_att=pass_hidden_to_cross_att,
                                     share_only_kv=share_only_kv,
-                                    share_o=share_o
+                                    share_o=share_o,
+                                    share_crossatt_only_kv=share_crossatt_only_kv,
+                                    share_crossatt_o=share_crossatt_o,
+                                    share_ffnn=share_ffnn
                                     )
                             
     model = modeling_mc_for_baseline.MixcoderForConditionalGeneration(config=mixcoder_config)
@@ -207,10 +218,12 @@ else:
                                     vocab_size=len(tokenizer),
                                     next_token_type=next_token_type,
                                     next_token_id=next_token_id,
-                                    share_self_attention_module=share_self_attention_module,
                                     pass_hidden_to_cross_att=pass_hidden_to_cross_att,
                                     share_only_kv=share_only_kv,
-                                    share_o=share_o
+                                    share_o=share_o,
+                                    share_crossatt_only_kv=share_crossatt_only_kv,
+                                    share_crossatt_o=share_crossatt_o,
+                                    share_ffnn=share_ffnn
                                     )
                             
     model = MixcoderForConditionalGeneration(config=mixcoder_config)
