@@ -942,6 +942,7 @@ class MixcoderDecoderLayer(nn.Module):
         else:
             shared_o = None
 
+        print("make 1st layer")
         self.next_token_self_attn = MIXCODER_ATTENTION_CLASSES[config._attn_implementation](
             embed_dim=self.embed_dim,
             num_heads=config.decoder_attention_heads,
@@ -956,7 +957,7 @@ class MixcoderDecoderLayer(nn.Module):
         )
 
         if config.pass_hidden_to_cross_att:
-            print("make 2th layer")
+            print("make 2nd layer")
             if config.share_crossatt_q:
                 shared_q = self.encoder_attn.q_proj
             else:
