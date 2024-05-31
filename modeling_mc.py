@@ -170,8 +170,10 @@ class MixcoderConfig(PretrainedConfig):
         next_token_type="new_token",
         next_token_id=None,
         pass_hidden_to_cross_att = False,
+        share_q = False,
         share_kv = False,
         share_o = False,
+        share_crossatt_q = False,
         share_crossatt_kv = False,
         share_next_token_o = False,
         share_ffnn = False,
@@ -201,8 +203,10 @@ class MixcoderConfig(PretrainedConfig):
         self.next_token_type = next_token_type
         self.next_token_id = next_token_id
         self.pass_hidden_to_cross_att = pass_hidden_to_cross_att
+        self.share_q = share_q
         self.share_kv = share_kv
         self.share_o = share_o
+        self.share_crossatt_q = share_crossatt_q
         self.share_crossatt_kv = share_crossatt_kv
         self.share_next_token_o = share_next_token_o
         self.share_ffnn = share_ffnn
@@ -311,6 +315,7 @@ class MixcoderAttention(nn.Module):
         bias: bool = True,
         is_causal: bool = False,
         config: Optional[MixcoderConfig] = None,
+        shared_q = False,
         shared_k=None,
         shared_v=None,
         shared_o=None,
@@ -331,6 +336,12 @@ class MixcoderAttention(nn.Module):
         self.is_decoder = is_decoder
         self.is_causal = is_causal
         
+        if shared_q:
+            print("share_q")
+            self.q_proj = shared_q
+        else:
+            self.q_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
+
         if shared_k is not None:
             print("share_k")
             self.k_proj = shared_k
@@ -349,7 +360,6 @@ class MixcoderAttention(nn.Module):
         else:
             self.out_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
 
-        self.q_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
 
     def _shape(self, tensor: torch.Tensor, seq_len: int, bsz: int):
         return tensor.view(bsz, seq_len, self.num_heads, self.head_dim).transpose(1, 2).contiguous()
@@ -703,6 +713,7 @@ class MixcoderSdpaAttention(MixcoderAttention):
         attention_mask: Optional[torch.Tensor] = None,
         layer_head_mask: Optional[torch.Tensor] = None,
         output_attentions: bool = False,
+        shared_q: Optional[nn.Module] = None,
         shared_k: Optional[nn.Module] = None,
         shared_v: Optional[nn.Module] = None,
         shared_o: Optional[nn.Module] = None,
@@ -722,6 +733,7 @@ class MixcoderSdpaAttention(MixcoderAttention):
                 attention_mask=attention_mask,
                 layer_head_mask=layer_head_mask,
                 output_attentions=output_attentions,
+                shared_q=shared_q,
                 shared_k=shared_k,
                 shared_v=shared_v,
                 shared_o=shared_o,
@@ -913,6 +925,11 @@ class MixcoderDecoderLayer(nn.Module):
         self.final_layer_norm = nn.LayerNorm(self.embed_dim)
 
         #code for proposed methods
+        if config.share_q:
+            shared_q = self.self_attn.q_proj
+        else:
+            shared_q = None
+
         if config.share_kv:
             shared_k = self.encoder_attn.k_proj
             shared_v = self.encoder_attn.v_proj
@@ -932,6 +949,7 @@ class MixcoderDecoderLayer(nn.Module):
             is_decoder=True,
             is_causal=True,
             config=config,
+            shared_q=shared_q,
             shared_k=shared_k,
             shared_v=shared_v,
             shared_o=shared_o,
@@ -939,6 +957,11 @@ class MixcoderDecoderLayer(nn.Module):
 
         if config.pass_hidden_to_cross_att:
             print("make 2th layer")
+            if config.share_q:
+                shared_q = self.encoder_attn.q_proj
+            else:
+                shared_q = None
+
             if config.share_kv:
                 shared_k = self.encoder_attn.k_proj
                 shared_v = self.encoder_attn.v_proj
@@ -958,6 +981,7 @@ class MixcoderDecoderLayer(nn.Module):
                 is_decoder=True,
                 is_causal=True,
                 config=config,
+                shared_q=shared_q,
                 shared_k=shared_k,
                 shared_v=shared_v,
                 shared_o=shared_o,
