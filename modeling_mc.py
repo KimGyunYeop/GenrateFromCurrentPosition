@@ -886,6 +886,7 @@ class MixcoderDecoderLayer(nn.Module):
 
         #code for proposed methods
         if config.share_self_attention_module:
+            print("shared self attention")
             self.next_token_self_attn = self.self_attn
             self.next_token_encoder_attn_layer_norm = self.encoder_attn_layer_norm
             self.next_token_fc1 = self.fc1
@@ -893,6 +894,7 @@ class MixcoderDecoderLayer(nn.Module):
             self.next_token_final_layer_norm = self.final_layer_norm
             self.next_token_self_attn_layer_norm = self.self_attn_layer_norm
         else:
+            print("not shared self attention")
             self.next_token_self_attn = MIXCODER_ATTENTION_CLASSES[config._attn_implementation](
                 embed_dim=self.embed_dim,
                 num_heads=config.decoder_attention_heads,
@@ -903,9 +905,11 @@ class MixcoderDecoderLayer(nn.Module):
             )
             
             if config.share_only_kv:
+                print("shared only kv")
                 self.next_token_self_attn.v_proj = self.self_attn.v_proj
                 self.next_token_self_attn.k_proj = self.self_attn.k_proj
             if config.share_o:
+                print("shared only o")
                 self.next_token_self_attn.out_proj = self.self_attn.out_proj
 
             
