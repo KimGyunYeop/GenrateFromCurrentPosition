@@ -688,6 +688,7 @@ class MixcoderSdpaAttention(MixcoderAttention):
         attention_mask: Optional[torch.Tensor] = None,
         layer_head_mask: Optional[torch.Tensor] = None,
         output_attentions: bool = False,
+        use_next_token_query: bool = False,
     ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
         """Input shape: Batch x Time x Channel"""
         if output_attentions or layer_head_mask is not None:
@@ -703,6 +704,7 @@ class MixcoderSdpaAttention(MixcoderAttention):
                 attention_mask=attention_mask,
                 layer_head_mask=layer_head_mask,
                 output_attentions=output_attentions,
+                use_next_token_query=use_next_token_query,
             )
 
         # if key_value_states are provided this layer is used as a cross-attention layer
@@ -711,8 +713,12 @@ class MixcoderSdpaAttention(MixcoderAttention):
 
         bsz, tgt_len, _ = hidden_states.size()
 
+        #code for proposed methods
         # get query proj
-        query_states = self.q_proj(hidden_states)
+        if use_next_token_query:
+            query_states = self.next_tok_q_proj(hidden_states) * self.scaling
+        else:
+            query_states = self.q_proj(hidden_states) * self.scaling
         # get key, value proj
         # `past_key_value[0].shape[2] == key_value_states.shape[1]`
         # is checking that the `sequence_length` of the `past_key_value` is the same as
