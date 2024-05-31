@@ -31,9 +31,9 @@ argparser = argparse.ArgumentParser()
 
 argparser.add_argument("--next_token_type", type=str, default="avg_prev_token", choices=["new_token", "avg_prev_token"])
 argparser.add_argument("--pass_hidden_to_cross_att", default=False, action="store_true")
-argparser.add_argument("--share_only_kv", default=False, action="store_true")
+argparser.add_argument("--share_kv", default=False, action="store_true")
 argparser.add_argument("--share_o", default=False, action="store_true")
-argparser.add_argument("--share_crossatt_only_kv", default=False, action="store_true")
+argparser.add_argument("--share_crossatt_kv", default=False, action="store_true")
 argparser.add_argument("--share_crossatt_o", default=False, action="store_true")
 argparser.add_argument("--share_ffnn", default=False, action="store_true")
 
@@ -71,9 +71,9 @@ next_token_type = args.next_token_type
 # share_self_attention_module = args.share_self_attention_module
 pass_hidden_to_cross_att = args.pass_hidden_to_cross_att
 max_norm = args.max_norm
-share_only_kv = args.share_only_kv
+share_kv = args.share_kv
 share_o = args.share_o
-share_crossatt_only_kv = args.share_crossatt_only_kv
+share_crossatt_kv = args.share_crossatt_kv
 share_crossatt_o = args.share_crossatt_o
 share_ffnn = args.share_ffnn
 
@@ -84,11 +84,11 @@ elif args.pre_trained_baseline:
 else:
     save_path = args.save_path
     save_path += "-" + next_token_type 
-    if share_only_kv:
+    if share_kv:
         save_path += "-share_kv"
     if share_o:
         save_path += "o"
-    if share_crossatt_only_kv:
+    if share_crossatt_kv:
         save_path += "-share_cross_kv"
     if share_crossatt_o:
         save_path += "o"
@@ -158,9 +158,9 @@ if args.baseline:
                                     next_token_type=next_token_type,
                                     next_token_id=next_token_id,
                                     pass_hidden_to_cross_att=pass_hidden_to_cross_att,
-                                    share_only_kv=share_only_kv,
+                                    share_kv=share_kv,
                                     share_o=share_o,
-                                    share_crossatt_only_kv=share_crossatt_only_kv,
+                                    share_crossatt_kv=share_crossatt_kv,
                                     share_crossatt_o=share_crossatt_o,
                                     share_ffnn=share_ffnn
                                     )
@@ -219,9 +219,9 @@ else:
                                     next_token_type=next_token_type,
                                     next_token_id=next_token_id,
                                     pass_hidden_to_cross_att=pass_hidden_to_cross_att,
-                                    share_only_kv=share_only_kv,
+                                    share_kv=share_kv,
                                     share_o=share_o,
-                                    share_crossatt_only_kv=share_crossatt_only_kv,
+                                    share_crossatt_kv=share_crossatt_kv,
                                     share_crossatt_o=share_crossatt_o,
                                     share_ffnn=share_ffnn
                                     )
